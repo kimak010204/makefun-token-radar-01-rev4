@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Radar — which pre-token protocol is worth farming next</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="dot" aria-hidden="true"></span>Token Radar</div>
+  <div class="meta"><span id="asof"></span> · model <span id="modelver"></span> · <span id="counts"></span></div>
+</header>
+<main>
+  <section class="lede">
+    <h1>Which launch is worth farming next?</h1>
+    <p id="lede-text"></p>
+    <p class="note">Every row records no token in DefiLlama's snapshot — that is the record, not proof it has none. Implied value is this entry's own claim, never make.fun's.</p>
+    <p class="note" id="composition"></p>
+  </section>
+
+  <section class="stats" aria-label="Snapshot totals">
+    <div class="stat"><span class="stat-num" id="st-board"></span><span class="stat-label">protocols ranked</span></div>
+    <div class="stat"><span class="stat-num" id="st-tvl"></span><span class="stat-label">pre-token TVL tracked</span></div>
+    <div class="stat"><span class="stat-num" id="st-watch"></span><span class="stat-label">watchlist covered</span></div>
+    <div class="stat"><span class="stat-num" id="st-top"></span><span class="stat-label" id="st-top-label">top launch</span></div>
+  </section>
+
+  <section id="chart-wrap" aria-label="Top 10 by implied value">
+    <h2>Top 10 by implied value</h2>
+    <div id="chart"></div>
+  </section>
+
+  <section class="controls" aria-label="Filter and sort">
+    <input id="q" type="search" placeholder="Search name, slug, category or chain…" aria-label="Search">
+    <select id="category" aria-label="Category"><option value="">All categories</option></select>
+    <select id="chain" aria-label="Chain"><option value="">All chains</option></select>
+    <label class="check"><input id="watchlist" type="checkbox"> Watchlist only</label>
+    <select id="confidence" aria-label="Confidence"><option value="">All confidences</option><option value="priced">Priced</option><option value="thin">Thin</option><option value="fallback">Fallback</option></select>
+    <button id="csv" type="button" title="Download the filtered board as a CSV file">Download CSV</button>
+    <div class="tabs" role="tablist" aria-label="Board view">
+      <button id="tab-pre" role="tab" aria-selected="true">Pre-token board</button>
+      <button id="tab-live" role="tab" aria-selected="false">Live tokens</button>
+    </div>
+  </section>
+  <p id="rowcount" class="rowcount"></p>
+
+  <section id="board-wrap">
+    <table id="board">
+      <thead><tr>
+        <th data-sort="rank">Rank</th>
+        <th data-sort="name">Protocol</th>
+        <th data-sort="tvl_usd">TVL</th>
+        <th data-sort="change_7d">7d</th>
+        <th data-sort="age_days">Age</th>
+        <th data-sort="category_multiple">Multiple</th>
+        <th data-sort="implied_value_usd">Implied value</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p class="hint">Click a row (or press Enter on it) for the model breakdown, the sensitivity, and the farm plan. Click a column header to sort. The Multiple column shows the category multiple and how many live tokens stand behind it.</p>
+  </section>
+
+  <section id="bands-wrap" aria-label="Value distribution">
+    <h2>How big are the launches?</h2>
+    <p id="bands-text"></p>
+    <div id="bands"></div>
+  </section>
+
+  <section id="early-wrap" aria-label="Early finds">
+    <h2>Early finds — below the watchlist floor</h2>
+    <p>These protocols sit below the $50M watchlist floor, so the watchlist never names them — but the radar ranks them anyway. The strongest early launch is worth more than most of the watchlist.</p>
+    <div class="early-cols">
+      <div>
+        <h3>Strongest below the floor</h3>
+        <table id="early"><thead><tr><th>Rank</th><th>Protocol</th><th>TVL</th><th>Implied value</th></tr></thead><tbody id="early-rows"></tbody></table>
+      </div>
+      <div>
+        <h3>Fastest growing (TVL ≥ $10M)</h3>
+        <table id="fast"><thead><tr><th>Protocol</th><th>7d</th><th>Implied value</th></tr></thead><tbody id="fast-rows"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <section id="live-wrap" hidden>
+    <h2>Live tokens — the calibration set</h2>
+    <p>These tokens already trade, so the board shows the market's own value for them, never a model's. Their market-cap-per-TVL is what calibrates every category multiple below — the median of each category, shrunk toward the global median when the category has few live tokens.</p>
+    <table id="live">
+      <thead><tr><th>Protocol</th><th>Category</th><th>TVL</th><th>Market cap</th><th>Mcap / TVL</th></tr></thead>
+      <tbody id="live-rows"></tbody>
+    </table>
+  </section>
+
+  <section id="model-panel">
+    <h2>How the implied value is worked out</h2>
+    <p class="formula">implied = TVL × category multiple × growth × maturity × chains</p>
+    <ul>
+      <li><strong>Category multiple:</strong> the median of market-cap / TVL over the live tokens of the protocol's own category, shrunk toward the global median <span id="globalmult"></span> — the global prior counts as 3 live tokens, so one live token moves the multiple a quarter of the way from the global median toward its own ratio, and fifteen move it five-sixths of the way. Clamped to 0.05 – 1.5. The median, not the mean: one token with a tiny TVL and a huge market cap must not set the multiple for a whole category.</li>
+      <li><strong>Growth:</strong> 1 + clamp(7-day TVL change, −50%, +150%) / 100 × 0.6. Seven days is noisy, so its weight is deliberately below one: momentum moves the value, it never decides it.</li>
+      <li><strong>Maturity:</strong> 0.6 + min(age in days, 1095) / 1095 × 0.4 — older and still pre-token counts for more; unknown age counts as 365 days.</li>
+      <li><strong>Chains:</strong> 1 + 0.02 × min(chains, 5).</li>
+    </ul>
+    <p>Why shrink instead of cutting off: a category with only one or two live tokens still has evidence, and throwing it away would be the bigger error. The top three launches are Risk Curators, a category with exactly one live token — Api3, trading at 2.975 times TVL — and pricing all 38 pre-token curators at the global median as if that peer did not exist would understate them fourfold. Shrinking gives that peer a quarter of the say and the global median three quarters, landing the multiple at 0.904. The calibration table below shows the raw median, the live count, the weight, and the final multiple for every category, so a reader can see the blend — and every row carries a confidence label: priced (3+ live tokens), thin (1–2), or fallback (none).</p>
+    <p>What the model does not do: it does not predict whether or when a token is issued. A protocol's implied value is what its token would be worth if its record stayed as it is. A protocol can sit at the top of this board for years and never launch, and a small one can launch tomorrow — the board ranks value, not likelihood.</p>
+    <h3>Worked example — the top launch, step by step</h3>
+    <p id="worked-example"></p>
+    <h3>Board statistics</h3>
+    <p id="board-stats"></p>
+    <h3>Where the value sits — top 5 categories</h3>
+    <table id="catval">
+      <thead><tr><th>Category</th><th>Protocols</th><th>Implied value</th></tr></thead>
+      <tbody id="catval-rows"></tbody>
+    </table>
+    <h3>Category calibration</h3>
+    <table id="calib">
+      <thead><tr><th>Category</th><th>Live tokens</th><th>Raw median</th><th>Weight from category</th><th>Multiple used</th><th>Confidence</th></tr></thead>
+      <tbody id="calib-rows"></tbody>
+    </table>
+  </section>
+</main>
+<footer>Token Radar · snapshot <span id="asof2"></span> · built from DefiLlama's public protocol list. Farm at your own risk: verify every link on the protocol's own page, never pay to claim.</footer>
+
+<dialog id="detail" aria-labelledby="d-name">
+  <div class="d-head"><h2 id="d-name"></h2><button id="d-close" aria-label="Close">✕</button></div>
+  <p id="d-sub" class="muted"></p>
+  <p id="d-why" class="why"></p>
+  <p id="d-conf" class="conf"></p>
+  <dl id="d-model"></dl>
+  <p id="d-recompute" class="recompute"></p>
+  <p id="d-sens" class="sens"></p>
+  <h3>Farm plan</h3>
+  <p id="d-plan-cost" class="plan-cost"></p>
+  <ol id="d-farm"></ol>
+  <p class="muted">This protocol records no token in the snapshot — DefiLlama's record, not proof. The farm plan is this entry's suggestion, not a promise of a token.</p>
+</dialog>
+
+<script src="../data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
